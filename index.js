@@ -56,24 +56,22 @@ client.on('interactionCreate', async interaction => {
     for (const role of interaction.guild.roles.cache.values()) {
       if (role.name === '@everyone') continue;
 
-      const allPerms = Object.keys(PermissionsBitField.Flags);
-      const rolePerms = role.permissions.toArray();
+      const serverPerms = role.permissions.toArray();
+      if (serverPerms.length === 0) continue;
 
-      const allow = rolePerms.map(p => PermissionsBitField.Flags[p]);
-      const deny = allPerms
-        .filter(p => !rolePerms.includes(p))
-        .map(p => PermissionsBitField.Flags[p]);
+      try {
+        await channel.permissionOverwrites.edit(role.id, {
+          allow: PermissionsBitField.resolve(serverPerms)
+        });
 
-      await channel.permissionOverwrites.edit(role.id, {
-        allow,
-        deny
-      });
-
-      console.log(`✅ Synced ${role.name} → allow: ${allow.length}, deny: ${deny.length}`);
-      updated++;
+        console.log(`✅ Granted ${serverPerms.length} perms to ${role.name}`);
+        updated++;
+      } catch (roleErr) {
+        console.warn(`❌ Failed for ${role.name}:`, roleErr.message);
+      }
     }
 
-    await interaction.editReply(`✅ Synced server-level permissions for ${updated} roles to <#${channel.id}> (excluding @everyone).`);
+    await interaction.editReply(`✅ Applied server-level permissions for ${updated} roles to <#${channel.id}> (excluding @everyone).`);
   } catch (err) {
     console.error('❌ Error syncing permissions:', err);
     try {
