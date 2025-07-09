@@ -10,15 +10,12 @@ const {
 } = require('discord.js');
 require('dotenv').config();
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
-});
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// Slash command: /permissions channel:#channel
 const commands = [
   new SlashCommandBuilder()
     .setName('permissions')
-    .setDescription('Apply server-level role permissions into a specific channel')
+    .setDescription('Apply server-level role permissions to a channel')
     .addChannelOption(option =>
       option.setName('channel')
         .setDescription('Channel to sync permissions to')
@@ -37,7 +34,7 @@ client.once('ready', async () => {
       Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
       { body: commands }
     );
-    console.log('✅ Slash command /permissions registered');
+    console.log('✅ Slash command /permissions registered!');
   } catch (err) {
     console.error('❌ Command registration failed:', err);
   }
@@ -55,21 +52,23 @@ client.on('interactionCreate', async interaction => {
     for (const role of interaction.guild.roles.cache.values()) {
       if (role.name === '@everyone') continue;
 
-      const rolePerms = role.permissions;
-      if (!rolePerms || rolePerms.bitfield === 0n) continue;
+      const allowedPerms = role.permissions.toArray(); // array of permission names
+      if (allowedPerms.length === 0) continue;
+
+      const permissionFlags = allowedPerms.map(p => PermissionsBitField.Flags[p]);
 
       await channel.permissionOverwrites.edit(role.id, {
-        allow: rolePerms.bitfield
+        allow: permissionFlags
       });
 
-      console.log(`✅ Applied ${role.permissions.toArray().length} perms to ${role.name}`);
+      console.log(`✅ Gave ${allowedPerms.length} perms to ${role.name}`);
       updated++;
     }
 
-    await interaction.reply(`✅ Synced server-level role permissions to <#${channel.id}> for ${updated} roles (excluding @everyone).`);
+    await interaction.reply(`✅ Granted server-level permissions to <#${channel.id}> for ${updated} roles (excluding @everyone).`);
   } catch (err) {
-    console.error('❌ Failed to sync permissions:', err);
-    await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true });
+    console.error('❌ Error syncing permissions:', err);
+    await interaction.reply({ content: '❌ Failed to sync permissions.', ephemeral: true });
   }
 });
 
