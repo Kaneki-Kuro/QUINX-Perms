@@ -5,7 +5,6 @@ const {
   REST,
   Routes,
   PermissionFlagsBits,
-  PermissionsBitField,
   ChannelType
 } = require('discord.js');
 require('dotenv').config();
@@ -61,17 +60,17 @@ client.on('interactionCreate', async interaction => {
 
       try {
         await channel.permissionOverwrites.edit(role.id, {
-          allow: PermissionsBitField.resolve(serverPerms)
+          allow: serverPerms
         });
 
-        console.log(`✅ Granted ${serverPerms.length} perms to ${role.name}`);
+        console.log(`✅ Actually granted ${serverPerms.length} perms to ${role.name}`);
         updated++;
-      } catch (roleErr) {
-        console.warn(`❌ Failed for ${role.name}:`, roleErr.message);
+      } catch (err) {
+        console.warn(`❌ Failed for ${role.name}:`, err.message);
       }
     }
 
-    await interaction.editReply(`✅ Applied server-level permissions for ${updated} roles to <#${channel.id}> (excluding @everyone).`);
+    await interaction.editReply(`✅ Applied server-level permissions to <#${channel.id}> for ${updated} roles (excluding @everyone).`);
   } catch (err) {
     console.error('❌ Error syncing permissions:', err);
     try {
