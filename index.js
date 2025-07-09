@@ -5,7 +5,8 @@ const {
   REST,
   Routes,
   PermissionFlagsBits,
-  ChannelType
+  ChannelType,
+  PermissionsBitField
 } = require('discord.js');
 require('dotenv').config();
 
@@ -19,9 +20,9 @@ const commands = [
     .setDescription('Apply server-level role permissions to a selected channel (excluding @everyone)')
     .addChannelOption(option =>
       option.setName('channel')
-        .setDescription('Channel to sync role permissions to')
-        .addChannelTypes(ChannelType.GuildText)
-        .setRequired(true))
+        .setDescription('The channel to sync permissions to')
+        .setRequired(true)
+        .addChannelTypes(ChannelType.GuildText))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
     .toJSON()
 ];
@@ -47,7 +48,6 @@ client.on('interactionCreate', async interaction => {
 
   const channel = interaction.options.getChannel('channel');
 
-  // ✅ Always defer reply IMMEDIATELY
   try {
     await interaction.deferReply({ ephemeral: true });
   } catch (err) {
@@ -60,19 +60,28 @@ client.on('interactionCreate', async interaction => {
   try {
     for (const role of interaction.guild.roles.cache.values()) {
       if (role.name === '@everyone') continue;
+      if (!role.permissions) continue;
 
-      const serverPerms = role.permissions.toArray();
-      if (serverPerms.length === 0) continue;
+      const perms = role.permissions.toArray();
 
-      await channel.permissionOverwrites.edit(role.id, {
-        allow: serverPerms
-      });
+      if (perms.length === 0) continue;
 
-      console.log(`✅ Granted ${serverPerms.length} perms to ${role.name}`);
+      const resolved = PermissionsBitField.resolve(perms);
+
+      await channel.permissionOverwrites.set([
+        ...channel.permissionOverwrites.cache.filter(o => o.id !== role.id).values(),
+        {
+          id: role.id,
+          allow: resolved,
+          type: 0 // Role
+        }
+      ]);
+
+      console.log(`✅ Gave ${perms.length} permissions to ${role.name}`);
       updated++;
     }
 
-    await interaction.editReply(`✅ Applied server-level permissions to <#${channel.id}> for ${updated} roles (excluding @everyone).`);
+    await interaction.editReply(`✅ Applied permissions to <#${channel.id}> for ${updated} roles (excluding @everyone).`);
   } catch (err) {
     console.error('❌ Error syncing permissions:', err);
     try {
