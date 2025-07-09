@@ -47,27 +47,29 @@ client.on('interactionCreate', async interaction => {
 
   const channel = interaction.options.getChannel('channel');
 
+  // ✅ Always defer reply IMMEDIATELY
   try {
     await interaction.deferReply({ ephemeral: true });
+  } catch (err) {
+    console.error('❌ Failed to defer reply:', err);
+    return;
+  }
 
-    let updated = 0;
+  let updated = 0;
 
+  try {
     for (const role of interaction.guild.roles.cache.values()) {
       if (role.name === '@everyone') continue;
 
       const serverPerms = role.permissions.toArray();
       if (serverPerms.length === 0) continue;
 
-      try {
-        await channel.permissionOverwrites.edit(role.id, {
-          allow: serverPerms
-        });
+      await channel.permissionOverwrites.edit(role.id, {
+        allow: serverPerms
+      });
 
-        console.log(`✅ Actually granted ${serverPerms.length} perms to ${role.name}`);
-        updated++;
-      } catch (err) {
-        console.warn(`❌ Failed for ${role.name}:`, err.message);
-      }
+      console.log(`✅ Granted ${serverPerms.length} perms to ${role.name}`);
+      updated++;
     }
 
     await interaction.editReply(`✅ Applied server-level permissions to <#${channel.id}> for ${updated} roles (excluding @everyone).`);
