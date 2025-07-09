@@ -14,7 +14,6 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// Register slash command: /permissions channel: #channel
 const commands = [
   new SlashCommandBuilder()
     .setName('permissions')
@@ -57,20 +56,24 @@ client.on('interactionCreate', async interaction => {
     for (const role of interaction.guild.roles.cache.values()) {
       if (role.name === '@everyone') continue;
 
-      const allowedPerms = role.permissions.toArray();
-      if (allowedPerms.length === 0) continue;
+      const allPerms = Object.keys(PermissionsBitField.Flags);
+      const rolePerms = role.permissions.toArray();
 
-      const permissionFlags = allowedPerms.map(p => PermissionsBitField.Flags[p]);
+      const allow = rolePerms.map(p => PermissionsBitField.Flags[p]);
+      const deny = allPerms
+        .filter(p => !rolePerms.includes(p))
+        .map(p => PermissionsBitField.Flags[p]);
 
       await channel.permissionOverwrites.edit(role.id, {
-        allow: permissionFlags
+        allow,
+        deny
       });
 
-      console.log(`✅ Gave ${allowedPerms.length} perms to ${role.name}`);
+      console.log(`✅ Synced ${role.name} → allow: ${allow.length}, deny: ${deny.length}`);
       updated++;
     }
 
-    await interaction.editReply(`✅ Granted server-level permissions to <#${channel.id}> for ${updated} roles (excluding @everyone).`);
+    await interaction.editReply(`✅ Synced server-level permissions for ${updated} roles to <#${channel.id}> (excluding @everyone).`);
   } catch (err) {
     console.error('❌ Error syncing permissions:', err);
     try {
