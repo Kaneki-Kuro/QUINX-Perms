@@ -71,7 +71,7 @@ client.on("interactionCreate", async (interaction) => {
     .join("\n");
 
   const embed = new EmbedBuilder()
-    .setTitle("📌 Reaction Roles")
+    .setTitle("📢 Get notification according to your choice")
     .setDescription(description)
     .setColor("#9b59b6");
 
