@@ -4,7 +4,9 @@ const {
   SlashCommandBuilder,
   REST,
   Routes,
-  PermissionFlagsBits
+  PermissionFlagsBits,
+  PermissionsBitField,
+  ChannelType
 } = require('discord.js');
 require('dotenv').config();
 
@@ -12,24 +14,20 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// Slash command: /clonepermissions from:#channel to:#channel
+// Slash command: /permissions channel:#channel
 const commands = [
   new SlashCommandBuilder()
-    .setName('clonepermissions')
-    .setDescription('Clone permission overwrites from one channel to another')
+    .setName('permissions')
+    .setDescription('Apply server-level role permissions into a specific channel')
     .addChannelOption(option =>
-      option.setName('from')
-        .setDescription('Channel to copy permissions from')
-        .setRequired(true))
-    .addChannelOption(option =>
-      option.setName('to')
-        .setDescription('Channel to apply permissions to')
+      option.setName('channel')
+        .setDescription('Channel to sync permissions to')
+        .addChannelTypes(ChannelType.GuildText)
         .setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
     .toJSON()
 ];
 
-// Register slash command
 client.once('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
@@ -39,35 +37,40 @@ client.once('ready', async () => {
       Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
       { body: commands }
     );
-    console.log('✅ Slash command /clonepermissions registered!');
+    console.log('✅ Slash command /permissions registered');
   } catch (err) {
-    console.error('❌ Failed to register command:', err);
+    console.error('❌ Command registration failed:', err);
   }
 });
 
-// Handle command logic
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== 'clonepermissions') return;
+  if (interaction.commandName !== 'permissions') return;
 
-  const fromChannel = interaction.options.getChannel('from');
-  const toChannel = interaction.options.getChannel('to');
+  const channel = interaction.options.getChannel('channel');
 
   try {
-    const overwrites = fromChannel.permissionOverwrites.cache.map(overwrite => ({
-      id: overwrite.id,
-      allow: overwrite.allow.bitfield,
-      deny: overwrite.deny.bitfield,
-      type: overwrite.type
-    }));
+    let updated = 0;
 
-    await toChannel.permissionOverwrites.set(overwrites);
-    await interaction.reply(`✅ Permissions cloned from <#${fromChannel.id}> to <#${toChannel.id}>`);
+    for (const role of interaction.guild.roles.cache.values()) {
+      if (role.name === '@everyone') continue;
+
+      const rolePerms = role.permissions;
+      if (!rolePerms || rolePerms.bitfield === 0n) continue;
+
+      await channel.permissionOverwrites.edit(role.id, {
+        allow: rolePerms.bitfield
+      });
+
+      console.log(`✅ Applied ${role.permissions.toArray().length} perms to ${role.name}`);
+      updated++;
+    }
+
+    await interaction.reply(`✅ Synced server-level role permissions to <#${channel.id}> for ${updated} roles (excluding @everyone).`);
   } catch (err) {
-    console.error('❌ Error cloning permissions:', err);
-    await interaction.reply({ content: '❌ Failed to clone permissions.', ephemeral: true });
+    console.error('❌ Failed to sync permissions:', err);
+    await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true });
   }
 });
 
-// Start the bot
 client.login(process.env.TOKEN);
