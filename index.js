@@ -5,11 +5,15 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-client.once('ready', () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-});
+// ===== Define roles and their permissions (use exact names from your server) =====
+const rolePermissionsMap = {
+  '🔴 Admin': ['SendMessages', 'ManageMessages', 'AttachFiles'],
+  '🟢 Mod': ['ManageMessages', 'ReadMessageHistory'],
+  '🟡 Helper': ['AttachFiles', 'EmbedLinks'],
+  '@everyone': ['AddReactions', 'ReadMessageHistory'] // This will be skipped
+};
 
-// ====== Define the /permissions command ======
+// ===== Define the slash command =====
 const commands = [
   new SlashCommandBuilder()
     .setName('permissions')
@@ -23,10 +27,12 @@ const commands = [
     .toJSON()
 ];
 
-// ====== Register slash command ======
-const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-
+// ===== Register slash command =====
 client.on('ready', async () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+
+  const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+
   try {
     await rest.put(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
@@ -38,38 +44,44 @@ client.on('ready', async () => {
   }
 });
 
-// ====== Handle interactions ======
+// ===== Handle command interaction =====
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'permissions') return;
 
   const channel = interaction.options.getChannel('channel');
 
-  const rolePermissionsMap = {
-    'Admin': ['SendMessages', 'ManageMessages', 'AttachFiles'],
-    'Mod': ['ManageMessages', 'ReadMessageHistory'],
-    'Helper': ['AttachFiles', 'EmbedLinks'],
-    '@everyone': ['AddReactions', 'ReadMessageHistory'] // will be skipped
-  };
+  console.log(`\n🔧 Running /permissions on #${channel.name}`);
+  console.log('🧾 Available roles in server:');
+  interaction.guild.roles.cache.forEach(role => {
+    console.log(`- ${role.name}`);
+  });
 
   try {
     for (const [roleName, perms] of Object.entries(rolePermissionsMap)) {
-      if (roleName === '@everyone') continue; // ⛔ Skip everyone
+      if (roleName === '@everyone') {
+        console.log('⏭️ Skipping @everyone');
+        continue;
+      }
 
       const role = interaction.guild.roles.cache.find(r => r.name === roleName);
-      if (!role) continue;
+      if (!role) {
+        console.log(`❌ Role not found: "${roleName}"`);
+        continue;
+      }
 
+      console.log(`✅ Setting permissions for role: "${role.name}"`);
       await channel.permissionOverwrites.edit(role.id, {
-        Allow: perms.map(perm => PermissionsBitField.Flags[perm])
+        Allow: perms.map(p => PermissionsBitField.Flags[p])
       });
     }
 
     await interaction.reply(`✅ Permissions synced in <#${channel.id}> (excluding @everyone).`);
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error updating permissions:', err);
     await interaction.reply({ content: '❌ Failed to update permissions.', ephemeral: true });
   }
 });
 
-// ====== Log in ======
+// ===== Start the bot =====
 client.login(process.env.TOKEN);
