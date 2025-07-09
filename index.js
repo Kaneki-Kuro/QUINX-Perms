@@ -1,87 +1,95 @@
-const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, PermissionFlagsBits, PermissionsBitField, ChannelType } = require('discord.js');
+const {
+  Client,
+  GatewayIntentBits,
+  SlashCommandBuilder,
+  REST,
+  Routes,
+  PermissionFlagsBits,
+  PermissionsBitField,
+  ChannelType
+} = require('discord.js');
 require('dotenv').config();
 
+// Initialize bot
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// ===== Define roles and their permissions (use exact names from your server) =====
+// Define your role-permission map (use actual role names from your server)
 const rolePermissionsMap = {
-  '🔴 Admin': ['SendMessages', 'ManageMessages', 'AttachFiles'],
-  '🟢 Mod': ['ManageMessages', 'ReadMessageHistory'],
-  '🟡 Helper': ['AttachFiles', 'EmbedLinks'],
-  '@everyone': ['AddReactions', 'ReadMessageHistory'] // This will be skipped
+  'Admin': ['SendMessages', 'ManageMessages', 'AttachFiles'],
+  'Mod': ['ManageMessages', 'ReadMessageHistory'],
+  'Helper': ['AttachFiles', 'EmbedLinks']
+  // '@everyone': ['AddReactions'] <-- will be ignored if added
 };
 
-// ===== Define the slash command =====
+// Register slash command
 const commands = [
   new SlashCommandBuilder()
     .setName('permissions')
-    .setDescription('Sync channel permissions with role permissions (excluding @everyone)')
+    .setDescription('Syncs the selected channel permissions with role permissions (excludes @everyone)')
     .addChannelOption(option =>
       option.setName('channel')
-        .setDescription('Channel to update')
+        .setDescription('Select the channel to sync')
         .addChannelTypes(ChannelType.GuildText)
         .setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
     .toJSON()
 ];
 
-// ===== Register slash command =====
-client.on('ready', async () => {
+// Register slash command once bot is ready
+client.once('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-
   try {
     await rest.put(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
       { body: commands }
     );
-    console.log('✅ Slash commands registered');
+    console.log('✅ Slash command /permissions registered successfully.');
   } catch (err) {
-    console.error('❌ Failed to register commands:', err);
+    console.error('❌ Error registering slash command:', err);
   }
 });
 
-// ===== Handle command interaction =====
+// Handle slash command execution
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== 'permissions') return;
+  if (!interaction.isChatInputCommand() || interaction.commandName !== 'permissions') return;
 
   const channel = interaction.options.getChannel('channel');
 
-  console.log(`\n🔧 Running /permissions on #${channel.name}`);
-  console.log('🧾 Available roles in server:');
-  interaction.guild.roles.cache.forEach(role => {
-    console.log(`- ${role.name}`);
-  });
+  console.log(`\n🔧 Running /permissions for channel: #${channel.name}`);
+  console.log('📋 Available roles in the server:');
+  interaction.guild.roles.cache.forEach(role => console.log(`- ${role.name}`));
 
   try {
     for (const [roleName, perms] of Object.entries(rolePermissionsMap)) {
-      if (roleName === '@everyone') {
-        console.log('⏭️ Skipping @everyone');
-        continue;
-      }
+      if (roleName === '@everyone') continue; // Skip @everyone
 
       const role = interaction.guild.roles.cache.find(r => r.name === roleName);
       if (!role) {
-        console.log(`❌ Role not found: "${roleName}"`);
+        console.log(`❌ Role "${roleName}" not found.`);
         continue;
       }
 
-      console.log(`✅ Setting permissions for role: "${role.name}"`);
+      console.log(`✅ Applying permissions for role: "${role.name}"`);
+
       await channel.permissionOverwrites.edit(role.id, {
-        Allow: perms.map(p => PermissionsBitField.Flags[p])
+        allow: perms.map(perm => {
+          const flag = PermissionsBitField.Flags[perm];
+          if (!flag) console.log(`⚠️ Invalid permission: ${perm}`);
+          return flag;
+        }).filter(Boolean)
       });
     }
 
     await interaction.reply(`✅ Permissions synced in <#${channel.id}> (excluding @everyone).`);
   } catch (err) {
-    console.error('❌ Error updating permissions:', err);
+    console.error('❌ Failed to update permissions:', err);
     await interaction.reply({ content: '❌ Failed to update permissions.', ephemeral: true });
   }
 });
 
-// ===== Start the bot =====
+// Login the bot
 client.login(process.env.TOKEN);
