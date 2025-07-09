@@ -21,7 +21,7 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-// ✅ Emoji ID → Role ID Map
+// ✅ Final Emoji ID → Role ID map
 const ROLE_MAP = {
   "1392473008081342617": "1389488153097801758",
   "1392472992662949940": "1389488178540318760",
@@ -35,7 +35,7 @@ let MESSAGE_ID = "";
 client.once("ready", async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
-  // Slash Command Registration
+  // Register /rr command
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
   const command = new SlashCommandBuilder()
@@ -50,7 +50,7 @@ client.once("ready", async () => {
     );
     console.log("✅ Slash command /rr registered!");
   } catch (err) {
-    console.error("❌ Slash command registration failed:", err);
+    console.error("❌ Failed to register slash command:", err);
   }
 });
 
@@ -62,17 +62,16 @@ client.on("interactionCreate", async (interaction) => {
 
   const channel = await client.channels.fetch(TARGET_CHANNEL_ID);
 
+  // 💡 Format: show emoji icon and role mention
   const description = Object.entries(ROLE_MAP)
     .map(([emojiId, roleId]) => {
       const emoji = client.emojis.resolve(emojiId);
-      return emoji
-        ? `${emoji} : <@&${roleId}>`
-        : `❌ Emoji \`${emojiId}\` not found`;
+      return emoji ? `${emoji} : <@&${roleId}>` : `❌ Emoji \`${emojiId}\` not found`;
     })
     .join("\n");
 
   const embed = new EmbedBuilder()
-    .setTitle("📢 Get ping according to your choice")
+    .setTitle("📌 Reaction Roles")
     .setDescription(description)
     .setColor("#9b59b6");
 
@@ -82,15 +81,16 @@ client.on("interactionCreate", async (interaction) => {
     try {
       await message.react(emojiId);
     } catch (err) {
-      console.error(`❌ Couldn't react with ${emojiId}:`, err);
+      console.error(`❌ Failed to react with emoji ${emojiId}:`, err);
     }
   }
 
   MESSAGE_ID = message.id;
-  await interaction.editReply({ content: "✅ Reaction role embed sent!" });
+
+  await interaction.editReply({ content: "✅ Reaction role embed sent successfully!" });
 });
 
-// Add role
+// Add role on reaction
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch();
@@ -104,7 +104,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
   await member.roles.add(roleId).catch(console.error);
 });
 
-// Remove role
+// Remove role on unreact
 client.on("messageReactionRemove", async (reaction, user) => {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch();
