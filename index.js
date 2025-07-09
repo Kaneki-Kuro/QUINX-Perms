@@ -6,7 +6,7 @@ const {
   Routes,
   SlashCommandBuilder,
   PermissionFlagsBits,
-  EmbedBuilder
+  EmbedBuilder,
 } = require("discord.js");
 require("dotenv").config();
 
@@ -21,7 +21,7 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-// ✅ Final Emoji → Role map
+// ✅ Final Emoji ID → Role ID map
 const ROLE_MAP = {
   "1392473008081342617": "1389488153097801758",
   "1392472992662949940": "1389488178540318760",
@@ -35,22 +35,22 @@ let MESSAGE_ID = "";
 client.once("ready", async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
-  // Register the slash command
+  // Register /rr command
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
   const command = new SlashCommandBuilder()
     .setName("rr")
     .setDescription("Send the reaction role embed")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator); // Admin-only
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
   try {
     await rest.put(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
       { body: [command.toJSON()] }
     );
-    console.log("✅ Slash command /rr registered");
-  } catch (error) {
-    console.error("❌ Failed to register /rr:", error);
+    console.log("✅ Slash command /rr registered!");
+  } catch (err) {
+    console.error("❌ Failed to register slash command:", err);
   }
 });
 
@@ -58,16 +58,22 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== "rr") return;
 
+  await interaction.deferReply({ ephemeral: true });
+
   const channel = await client.channels.fetch(TARGET_CHANNEL_ID);
 
+  // 💡 Format: show emoji icon and role mention
   const description = Object.entries(ROLE_MAP)
-    .map(([emojiId, roleId]) => `<:${emojiId}> : <@&${roleId}>`)
+    .map(([emojiId, roleId]) => {
+      const emoji = client.emojis.resolve(emojiId);
+      return emoji ? `${emoji} : <@&${roleId}>` : `❌ Emoji \`${emojiId}\` not found`;
+    })
     .join("\n");
 
   const embed = new EmbedBuilder()
-    .setTitle("Reaction Roles")
+    .setTitle("📌 Reaction Roles")
     .setDescription(description)
-    .setColor("#9b59b6"); // Purple
+    .setColor("#9b59b6");
 
   const message = await channel.send({ embeds: [embed] });
 
@@ -80,10 +86,11 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   MESSAGE_ID = message.id;
-  await interaction.reply({ content: "✅ Reaction role embed sent!", ephemeral: true });
+
+  await interaction.editReply({ content: "✅ Reaction role embed sent successfully!" });
 });
 
-// Add role
+// Add role on reaction
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch();
@@ -97,7 +104,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
   await member.roles.add(roleId).catch(console.error);
 });
 
-// Remove role
+// Remove role on unreact
 client.on("messageReactionRemove", async (reaction, user) => {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch();
