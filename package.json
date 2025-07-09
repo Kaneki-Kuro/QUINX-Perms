@@ -1,15 +1,16 @@
 {
-  "name": "permissions-sync-bot",
+  "name": "quinx-reaction-role-bot",
   "version": "1.0.0",
-  "description": "Discord bot that syncs channel permissions with role permissions",
+  "description": "Simple reaction role bot using Discord.js v14",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
-  "author": "Ken",
-  "license": "MIT",
   "dependencies": {
     "discord.js": "^14.13.0",
     "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
