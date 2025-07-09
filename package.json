@@ -1,7 +1,7 @@
 {
-  "name": "quinx-reaction-role-bot",
+  "name": "quinx-reaction-roles",
   "version": "1.0.0",
-  "description": "Simple reaction role bot using Discord.js v14",
+  "description": "Reaction role bot with /rr command",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
