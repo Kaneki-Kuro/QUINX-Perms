@@ -10,15 +10,18 @@ const {
 } = require('discord.js');
 require('dotenv').config();
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds]
+});
 
+// Register slash command: /permissions channel: #channel
 const commands = [
   new SlashCommandBuilder()
     .setName('permissions')
-    .setDescription('Apply server-level role permissions to a channel')
+    .setDescription('Apply server-level role permissions to a selected channel (excluding @everyone)')
     .addChannelOption(option =>
       option.setName('channel')
-        .setDescription('Channel to sync permissions to')
+        .setDescription('Channel to sync role permissions to')
         .addChannelTypes(ChannelType.GuildText)
         .setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
@@ -27,6 +30,7 @@ const commands = [
 
 client.once('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
+
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
   try {
@@ -36,23 +40,24 @@ client.once('ready', async () => {
     );
     console.log('✅ Slash command /permissions registered!');
   } catch (err) {
-    console.error('❌ Command registration failed:', err);
+    console.error('❌ Failed to register command:', err);
   }
 });
 
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== 'permissions') return;
+  if (!interaction.isChatInputCommand() || interaction.commandName !== 'permissions') return;
 
   const channel = interaction.options.getChannel('channel');
 
   try {
+    await interaction.deferReply({ ephemeral: true });
+
     let updated = 0;
 
     for (const role of interaction.guild.roles.cache.values()) {
       if (role.name === '@everyone') continue;
 
-      const allowedPerms = role.permissions.toArray(); // array of permission names
+      const allowedPerms = role.permissions.toArray();
       if (allowedPerms.length === 0) continue;
 
       const permissionFlags = allowedPerms.map(p => PermissionsBitField.Flags[p]);
@@ -65,10 +70,14 @@ client.on('interactionCreate', async interaction => {
       updated++;
     }
 
-    await interaction.reply(`✅ Granted server-level permissions to <#${channel.id}> for ${updated} roles (excluding @everyone).`);
+    await interaction.editReply(`✅ Granted server-level permissions to <#${channel.id}> for ${updated} roles (excluding @everyone).`);
   } catch (err) {
     console.error('❌ Error syncing permissions:', err);
-    await interaction.reply({ content: '❌ Failed to sync permissions.', ephemeral: true });
+    try {
+      await interaction.editReply({ content: '❌ Failed to sync permissions.' });
+    } catch (replyErr) {
+      console.error('❌ Failed to send error reply:', replyErr);
+    }
   }
 });
 
