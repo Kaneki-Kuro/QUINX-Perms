@@ -21,6 +21,7 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
+// ✅ Emoji ID → Role ID map
 const ROLE_MAP = {
   "1392473008081342617": "1389488153097801758",
   "1392472992662949940": "1389488178540318760",
@@ -57,8 +58,8 @@ client.on("interactionCreate", async (interaction) => {
   if (interaction.commandName !== "rr") return;
 
   try {
-    await interaction.deferReply({ ephemeral: true }).catch((err) => {
-      console.warn("⚠️ Cannot defer reply (probably expired):", err.message);
+    await interaction.deferReply({ flags: 64 }).catch((err) => {
+      console.warn("⚠️ Could not defer reply:", err.message);
       return;
     });
 
@@ -96,7 +97,7 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// Role Add
+// ✅ Add role on reaction
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch();
@@ -110,7 +111,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
   await member.roles.add(roleId).catch(console.error);
 });
 
-// Role Remove
+// ✅ Remove role on unreact
 client.on("messageReactionRemove", async (reaction, user) => {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch();
