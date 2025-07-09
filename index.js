@@ -1,3 +1,17 @@
+// ========== KeepAlive (24/7 Server for Render) ==========
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 4000;
+
+app.get('/', (req, res) => {
+  res.send('✅ Quinx Reaction Role Bot is running 24/7!');
+});
+
+app.listen(port, () => {
+  console.log(`🌐 KeepAlive server listening on port ${port}`);
+});
+
+// ========== Discord Bot Setup ==========
 const {
   Client,
   GatewayIntentBits,
@@ -21,7 +35,7 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-// ✅ Emoji ID → Role ID map
+// Emoji ID → Role ID
 const ROLE_MAP = {
   "1392473008081342617": "1389488153097801758",
   "1392472992662949940": "1389488178540318760",
@@ -60,7 +74,6 @@ client.on("interactionCreate", async (interaction) => {
   try {
     await interaction.deferReply({ flags: 64 }).catch((err) => {
       console.warn("⚠️ Could not defer reply:", err.message);
-      return;
     });
 
     const channel = await client.channels.fetch(TARGET_CHANNEL_ID);
@@ -97,7 +110,7 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ✅ Add role on reaction
+// Add role
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch();
@@ -111,7 +124,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
   await member.roles.add(roleId).catch(console.error);
 });
 
-// ✅ Remove role on unreact
+// Remove role
 client.on("messageReactionRemove", async (reaction, user) => {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch();
