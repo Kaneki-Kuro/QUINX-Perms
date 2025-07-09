@@ -13,22 +13,21 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// Only allowed roles (name match)
 const allowedRoles = [
-  'Manager', 'Developer', 'Sr. Admin', 'Admin', 'Sr. Mod', 'Mod',
-  'Helper', 'Builder', 'Youtuber', 'Booster', 'Friends', 'Members'
+  'Manager', 'Developer', 'Sr. Admin', 'Admin', 'Sr. Mod',
+  'Mod', 'Helper', 'Builder', 'Youtuber', 'Booster', 'Friends', 'Members'
 ];
 
-// Channel to copy permissions from
-const sourceChannelId = '1389478172801892423';
+// ✅ Your source channel ID
+const sourceChannelId = '1389479756671619184';
 
 const commands = [
   new SlashCommandBuilder()
     .setName('permissions')
-    .setDescription('Clone permissions from the template channel to a selected channel')
+    .setDescription('Copy permissions from the template channel to another one')
     .addChannelOption(option =>
       option.setName('channel')
-        .setDescription('The channel to apply permissions to')
+        .setDescription('Target channel')
         .setRequired(true)
         .addChannelTypes(ChannelType.GuildText))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
@@ -39,6 +38,7 @@ client.once('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+
   try {
     await rest.put(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
@@ -55,42 +55,42 @@ client.on('interactionCreate', async interaction => {
 
   const targetChannel = interaction.options.getChannel('channel');
 
+  // ✅ Defer reply immediately
   try {
     await interaction.deferReply({ ephemeral: true });
+  } catch (err) {
+    console.error('❌ Failed to defer reply:', err);
+    return;
+  }
 
+  try {
     const sourceChannel = await interaction.guild.channels.fetch(sourceChannelId);
     if (!sourceChannel) {
-      return await interaction.editReply('❌ Failed to find the source channel.');
+      return await interaction.editReply('❌ Source channel not found.');
     }
 
     let updated = 0;
 
     for (const [roleId, overwrite] of sourceChannel.permissionOverwrites.cache) {
       const role = interaction.guild.roles.cache.get(roleId);
-
       if (!role || role.name === '@everyone') continue;
       if (!allowedRoles.includes(role.name)) continue;
 
-      try {
-        await targetChannel.permissionOverwrites.edit(role.id, {
-          allow: overwrite.allow,
-          deny: overwrite.deny
-        });
+      await targetChannel.permissionOverwrites.edit(role.id, {
+        allow: overwrite.allow,
+        deny: overwrite.deny
+      });
 
-        console.log(`✅ Cloned permissions for ${role.name}`);
-        updated++;
-      } catch (err) {
-        console.warn(`❌ Failed for ${role.name}:`, err.message);
-      }
+      updated++;
     }
 
-    await interaction.editReply(`✅ Cloned permissions from <#${sourceChannelId}> to <#${targetChannel.id}> for ${updated} roles.`);
+    await interaction.editReply(`✅ Copied permissions from <#${sourceChannelId}> to <#${targetChannel.id}> for ${updated} roles.`);
   } catch (err) {
-    console.error('❌ Error syncing permissions:', err);
+    console.error('❌ Sync error:', err);
     try {
       await interaction.editReply({ content: '❌ Failed to sync permissions.' });
-    } catch (replyErr) {
-      console.error('❌ Failed to send error reply:', replyErr);
+    } catch (e) {
+      console.error('❌ Could not send error reply:', e);
     }
   }
 });
